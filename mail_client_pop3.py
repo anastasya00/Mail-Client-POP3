@@ -15,10 +15,8 @@ class MailClientPOP3:
 
     actions = ['Просмотреть список писем', 'Отправить письмо', 'Удалить письмо', 'Выйти']
 
-    pop_host = str()
-    pop_port = str()
-    smtp_host = str()
-    smtp_port = str()
+    pop_host, pop_port = str()
+    smtp_host, smtp_port = str()
 
     mailbox = None
 
@@ -44,6 +42,7 @@ class MailClientPOP3:
 
                     self.__login = input("Логин: ")
                     self.__password = getpass.getpass("Пароль: ")
+
                     break
                 else:
                     print(f"Неверный выбор. Попробуйте снова.")                    
