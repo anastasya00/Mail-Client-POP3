@@ -1,6 +1,8 @@
 import poplib
 import smtplib
 import getpass
+import threading
+import time
 import email
 from email.header import decode_header
 from email.mime.text import MIMEText
@@ -15,16 +17,16 @@ class MailClientPOP3:
 
     actions = ['Просмотреть список писем', 'Отправить письмо', 'Удалить письмо', 'Выйти']
 
-    pop_host, pop_port = str()
-    smtp_host, smtp_port = str()
+    pop_host, pop_port = str(), str()
+    smtp_host, smtp_port = str(), str()
 
     mailbox = None
 
     def __init__(self) -> None:
         self.greeting()
-
         if self.connect_to_pop3():
-            self.menu()
+            self.start_noop_thread()
+            self.menu()                
 
     def greeting(self) -> None:
         print("Добро пожаловать в почтовый клиент POP3!\n")
@@ -70,6 +72,24 @@ class MailClientPOP3:
             print(f"Ошибка подключения: {e}.")
             return False
 
+    def start_noop_thread(self) -> None:
+        def noop():
+            while True:
+                if self.mailbox is None:
+                    print("Соединение закрыто. Попытка переподключения...")
+                    self.connect_to_pop3()
+    
+                try:
+                    if self.mailbox:
+                        self.mailbox.noop()
+                    time.sleep(30)
+                except Exception as e:
+                    print(f"Ошибка при отправке NOOP: {e}")
+                    self.mailbox = None
+                    time.sleep(5)
+
+        threading.Thread(target=noop, daemon=True).start()
+
     def menu(self) -> None:
         while True:
             print("Меню:")
@@ -102,22 +122,22 @@ class MailClientPOP3:
     def view_list_emails(self) -> None:
         try:
             emails_count, _ = self.mailbox.stat()
-            print(f"Количество писем: {emails_count}")
+            print(f"\nКоличество писем: {emails_count}")
             
             messagers = self.mailbox.list()[1]
             for i in range(len(messagers)):
                 raw_email = b"\n".join(self.mailbox.retr(i+1)[1])
                 parsed_email = email.message_from_bytes(raw_email)
 
-                print(f'\n--------------- Письмо №{i+1} ---------------')
+                print(f'\n-------------------- Письмо №{i+1} --------------------')
                 print('От кого:', self.decoding(parsed_email['From']))
                 print('Кому:', parsed_email['to'])
                 print('Дата:', parsed_email['Date'])
                 print('Тема: ', self.decoding(parsed_email['Subject']))
-                print('--------------------------------------------\n')
+                print('----------------------------------------------------\n')
 
         except Exception as e:
-            print("Ошибка при получении списка писем.")
+            print("Ошибка при получении списка писем.\n")
 
     def decoding(self, text):
         decoded_text = decode_header(text)[0]
@@ -134,7 +154,7 @@ class MailClientPOP3:
                 self.mailbox.dele(email_number)
                 return True
             else:
-                print("Неверный номер письма.")
+                print("Неверный номер письма.\n")
                 return False
             
         except Exception as e:
