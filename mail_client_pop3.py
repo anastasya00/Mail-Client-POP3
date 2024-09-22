@@ -152,7 +152,6 @@ class MailClientPOP3:
         try:
             if 1 <= email_number <= self.mailbox.stat()[0]:
                 self.mailbox.dele(email_number)
-                self.view_list_emails()
                 return True
             else:
                 print("Неверный номер письма.\n")
