@@ -15,14 +15,14 @@ class MailClientPOP3:
     providers = ['outlook']
     selected_provider = str()
 
-    actions = ['Просмотреть список писем', 'Отправить письмо', 'Удалить письмо', 'Выйти']
+    actions = ['Просмотреть список писем', 'Отправить письмо', 'Удалить письмо', 'Обновить почтовый ящик', 'Выйти']
 
     pop_host, pop_port = str(), str()
     smtp_host, smtp_port = str(), str()
 
     mailbox = None
 
-    def __init__(self) -> None:
+    def start(self) -> None:
         self.greeting()
         if self.connect_to_pop3():
             self.start_noop_thread()
@@ -106,30 +106,36 @@ class MailClientPOP3:
                             self.view_list_emails()
                         case 2:
                             if self.send_email():
-                                print("Письмо успешно отправлено.\n")
+                                print("\nПисьмо успешно отправлено.\n")
                         case 3:
                             if self.delete_email():
                                 print("Письмо успешно удалено.\n")
                         case 4:
-                            self.__delattr__()
+                            self.update_mailbox()
+                        case 5:
+                            self.disconnect()
                             print("Вы вышли из почтового клиента.")
                             break
                 else:
                     print(f"Неверный выбор. Попробуйте снова.")
             except ValueError:
                 print("Введите число.")
-    
+
     def view_list_emails(self) -> None:
         try:
             emails_count, _ = self.mailbox.stat()
             print(f"\nКоличество писем: {emails_count}")
+
+            if (emails_count == 0): 
+                print("Нет писем для отображения.")
+                return
             
             messagers = self.mailbox.list()[1]
             for i in range(len(messagers)):
                 raw_email = b"\n".join(self.mailbox.retr(i+1)[1])
                 parsed_email = email.message_from_bytes(raw_email)
 
-                print(f'\n-------------------- Письмо №{i+1} --------------------')
+                print(f'\n-------------------- Письмо №{i+1} ---------------------')
                 print('От кого:', self.decoding(parsed_email['From']))
                 print('Кому:', parsed_email['to'])
                 print('Дата:', parsed_email['Date'])
@@ -152,6 +158,7 @@ class MailClientPOP3:
         try:
             if 1 <= email_number <= self.mailbox.stat()[0]:
                 self.mailbox.dele(email_number)
+                self.update_mailbox()
                 return True
             else:
                 print("Неверный номер письма.\n")
@@ -185,9 +192,22 @@ class MailClientPOP3:
             print(f"Ошибка при отправке письма: {e}")
             return False
 
-    def __delattr__(self) -> None:
+    def update_mailbox(self) -> None:
+        self.disconnect()
+
+        try:
+            self.mailbox = poplib.POP3_SSL(self.pop_host, self.pop_port)
+            self.mailbox.user(self.__login)
+            self.mailbox.pass_(self.__password)
+            print("\nПочтовый ящик обновлен.\n")
+            return True
+        except Exception as e:
+            print(f"Ошибка обновления почтового ящика: {e}.")
+            return False
+
+    def disconnect(self) -> None:
         self.mailbox.quit()
    
 
 if __name__ == "__main__":
-    MailClientPOP3()
+    MailClientPOP3().start()
